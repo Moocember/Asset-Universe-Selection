@@ -35,76 +35,54 @@ optim.max.sharpe.combn.portfolios<-function(ia,
   
   idx.in.store=rep(F,nr)
   iter=0
-  if(any(is.na(ia$expected.return))){
-    while(any(!idx.in.store)){
-      iter=iter+1
-      #*****************************************************************
-      #index largest remaining subsest
-      #*****************************************************************
-      idx=which.max(rs.mat)
+  while(any(!idx.in.store)){
+    iter=iter+1
+    #*****************************************************************
+    #index largest remaining subsest
+    #*****************************************************************
+    idx=which.max(rs.mat)
+    a.mat.idx=asset.mat[idx,]
+    a = names(a.mat.idx[a.mat.idx>0])
+    
+    
+    if(max(ia$expected.return[a])<=0){
+      idx=which(rs.mat==(max(rs.mat,na.rm=T)))
+      a.mat.idx=asset.mat[idx,]
+      rets = ia$expected.return*t(a.mat.idx)
+      rets[rets<0]=0
+      rets=colSums(rets)
+      idx.2=which.max(rets)
+      if(rets[idx.2]<=0)
+        break
+      idx=idx[idx.2]
       a.mat.idx=asset.mat[idx,]
       a = names(a.mat.idx[a.mat.idx>0])
-      #*****************************************************************
-      #subset ia and constraints
-      #*****************************************************************
-      ia.tmp = create.sub.ia(ia,a)
-      constraints.tmp = clean.constraint(ia.tmp,constraints)
-      #*****************************************************************
-      #optimize
-      #*****************************************************************
-      w = sharpeWeights(ia.tmp,constraints.tmp)
-      w.in = w[w>w.thresh]
-      #*****************************************************************
-      #subset index
-      #*****************************************************************
-      a.in = names(w.in)
-      
-      idx.in = rowSums(asset.mat[,a.in,drop=F])==length(w.in)
-      
-      if(iter>1) idx.in[idx.in.store&idx.in]=F#avoid repeats
-      #*****************************************************************
-      #fill in weights
-      #*****************************************************************
-      w.mat[idx.in,a.in]=matrix(w.in,length(which(idx.in)),length(w.in),byrow=T)
-      rs.mat[idx.in]=NA#=index[!idx.in]
-      idx.in.store[idx.in]=T
-      
-    }}
-  else{
-    while(any(!idx.in.store)){
-      iter=iter+1
-      #*****************************************************************
-      #index largest remaining subsest
-      #*****************************************************************
-      idx=which.max(rs.mat)
-      a.mat.idx=asset.mat[idx,]
-      a = names(a.mat.idx[a.mat.idx>0])
-      #*****************************************************************
-      #subset ia and constraints
-      #*****************************************************************
-      ia.tmp = create.sub.ia(ia,a)
-      constraints.tmp = clean.constraint(ia.tmp,constraints)
-      #*****************************************************************
-      #optimize
-      #*****************************************************************
-      w = sharpeWeights(ia.tmp,constraints.tmp)
-      w.in = w[w>w.thresh]
-      #*****************************************************************
-      #subset index
-      #*****************************************************************
-      a.in = names(w.in)
-      
-      idx.in = rowSums(asset.mat[,a.in,drop=F])==length(w.in)
-      
-      if(iter>1) idx.in[idx.in.store&idx.in]=F#avoid repeats
-      #*****************************************************************
-      #fill in weights
-      #*****************************************************************
-      w.mat[idx.in,a.in]=matrix(w.in,length(which(idx.in)),length(w.in),byrow=T)
-      rs.mat[idx.in]=NA#=index[!idx.in]
-      idx.in.store[idx.in]=T
     }
     
+    #*****************************************************************
+    #subset ia and constraints
+    #*****************************************************************
+    ia.tmp = create.sub.ia(ia,a)
+    constraints.tmp = clean.constraint(ia.tmp,constraints)
+    #*****************************************************************
+    #optimize
+    #*****************************************************************
+    w = optim.max.sharpe.portfolio(ia.tmp,constraints.tmp)
+    w.in = w[w>w.thresh]
+    #*****************************************************************
+    #subset index
+    #*****************************************************************
+    a.in = names(w.in)
+    
+    idx.in = rowSums(asset.mat[,a.in,drop=F])==length(w.in)
+    
+    if(iter>1) idx.in[idx.in.store&idx.in]=F#avoid repeats
+    #*****************************************************************
+    #fill in weights
+    #*****************************************************************
+    w.mat[idx.in,a.in]=matrix(w.in,length(which(idx.in)),length(w.in),byrow=T)
+    rs.mat[idx.in]=NA#=index[!idx.in]
+    idx.in.store[idx.in]=T
   }
   #out=list(Asset.Matrix=asset.mat,Weight=w.mat)
   return(w.mat)
@@ -199,7 +177,21 @@ clean.constraint<-function(ia,constraints){
 #' @export
 optim.max.sharpe.portfolio = function(ia.tmp,constraints.tmp){
   port = max.sharpe.portfolio()(ia.tmp,constraints.tmp)
-  
+  names(port)= ia.tmp$symbols
   return(port)
 }
+
+#' @title clean.ia
+#' @export
+clean.ia = function(eR,covar){
+  excluded = is.na(eR)
+  ia = list()
+  ia$expected.return = matrix(eR)[!excluded]
+  ia$cov = covar[!excluded,!excluded]
+  ia$symbols = names(eR)[!excluded]
+  ia$n = len(ia$expected.return)
+  names(ia$expected.return)=ia$symbols
+  return(list(ia,excluded))
+}
+
 

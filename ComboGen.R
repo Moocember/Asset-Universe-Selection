@@ -11,6 +11,7 @@ uniWeightGen <- function(mu,sigma,lookBack,minAssets,maxAssets){
     library(gtools)
     library(SIT)
     library(quadprog)
+    library(corpcor)
     library(FastUniSelect)
     ia = create.ia(mu[lookBack+2,],sigma[,,lookBack+2])
     constraints = clean.constraint(ia,list())
@@ -19,13 +20,14 @@ uniWeightGen <- function(mu,sigma,lookBack,minAssets,maxAssets){
   weights = parLapply(cl,seq(lookBack+2,nrow(roc)),function(x){
     ia$expected.return = (mu[x,])
     ia$cov = (sigma[,,x])
-    #pre
+    ia$expected.return[is.na(ia$expected.return)] = 0
+    ia$cov[is.na(ia$cov)] = 0
     optim.max.sharpe.combn.portfolios(ia,constraints)
-    #post
   })
   stopCluster(cl)
   return(weights)
 }
+
 
 #' @title output2
 #' @export
